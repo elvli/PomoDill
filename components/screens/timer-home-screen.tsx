@@ -9,8 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { useNavigation } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PickleJarProgress } from '@/components/pickle-jar-progress';
 import { ProgressSummary } from '@/components/progress-summary';
@@ -23,10 +22,10 @@ import { usePomodoroTimer } from '@/hooks/use-pomodoro-timer';
 import { formatClock } from '@/lib/session';
 import { SESSION_LABELS } from '@/lib/timer';
 
-export default function TimerScreen() {
-  const navigation = useNavigation();
+export function TimerHomeScreen() {
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
   const isCompact = width < 390 || height < 780;
@@ -117,19 +116,6 @@ export default function TimerScreen() {
 
   useEffect(() => () => clearHideControlsTimeout(), []);
 
-  useEffect(() => {
-    navigation.setOptions({
-      tabBarStyle: showFocusMode
-        ? { display: 'none' }
-        : {
-            backgroundColor: palette.card,
-            borderTopColor: palette.border,
-            height: Platform.select({ ios: 84, default: 70 }),
-            paddingTop: 8,
-          },
-    });
-  }, [navigation, palette.border, palette.card, showFocusMode]);
-
   const jarTranslateY = focusValue.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -Math.min(height * 0.04, 28)],
@@ -154,8 +140,20 @@ export default function TimerScreen() {
     return `${SESSION_LABELS[recentSession.type]} · ${recentSession.completed ? 'done' : 'skipped'}`;
   }, [recentSession]);
 
+  const controlsAnimatedStyle = {
+    opacity: controlsOpacity,
+    transform: [
+      {
+        translateY: controlsOpacity.interpolate({
+          inputRange: [0, 1],
+          outputRange: [10, 0],
+        }),
+      },
+    ],
+  };
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={[]}>
       <View style={styles.backgroundLayer}>
         <View style={[styles.bgOrb, styles.bgOrbLeft, { backgroundColor: palette.accentSoft }]} />
         <View style={[styles.bgOrb, styles.bgOrbRight, { backgroundColor: palette.surfaceMuted }]} />
@@ -170,9 +168,7 @@ export default function TimerScreen() {
                 styles.focusJarStage,
                 isWide && styles.jarStageWide,
                 isCompact && styles.jarStageCompact,
-                {
-                  transform: [{ translateY: jarTranslateY }, { scale: jarScale }],
-                },
+                { transform: [{ translateY: jarTranslateY }, { scale: jarScale }] },
               ]}>
               <TimerDisplay
                 modeLabel={modeLabel}
@@ -180,47 +176,31 @@ export default function TimerScreen() {
                 isSessionActive={showFocusMode}
                 compact={isCompact}
               />
-              <View style={styles.focusJarArea}>
-                <PickleJarProgress
-                  progress={sessionProgress}
-                  isSessionActive={showFocusMode}
-                  isCompleted={sessionProgress >= 1 && !isRunning}
-                  compact={isCompact}
+              <PickleJarProgress
+                progress={sessionProgress}
+                isSessionActive={showFocusMode}
+                isCompleted={sessionProgress >= 1 && !isRunning}
+                compact={isCompact}
+              />
+              <Animated.View
+                pointerEvents={shouldAutoHideControls && !areFocusControlsVisible ? 'none' : 'auto'}
+                style={[styles.focusControlsWrap, controlsAnimatedStyle]}>
+                <TimerControls
+                  isRunning={isRunning}
+                  isSessionActive={isSessionActive}
+                  onPrimaryPress={isRunning ? pauseTimer : startTimer}
+                  onSkipPress={skipTimer}
+                  onResetPress={resetTimer}
                 />
-                <Animated.View
-                  pointerEvents={shouldAutoHideControls && !areFocusControlsVisible ? 'none' : 'auto'}
-                  style={[
-                    styles.controlsWrap,
-                    shouldAutoHideControls && styles.controlsWrapFloating,
-                    {
-                      opacity: controlsOpacity,
-                      transform: [
-                        {
-                          translateY: controlsOpacity.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [10, 0],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}>
-                  <TimerControls
-                    isRunning={isRunning}
-                    isSessionActive={isSessionActive}
-                    onPrimaryPress={isRunning ? pauseTimer : startTimer}
-                    onSkipPress={skipTimer}
-                    onResetPress={resetTimer}
-                  />
-                </Animated.View>
-              </View>
+              </Animated.View>
             </Animated.View>
           </View>
         </View>
       ) : (
-        <View style={styles.touchLayer} onTouchStart={handleScreenInteraction}>
+        <View style={styles.touchLayer}>
           <ScrollView
             style={styles.screen}
-            contentContainerStyle={styles.screenContent}
+            contentContainerStyle={[styles.screenContent, { paddingTop: insets.top + AppTheme.spacing.xs }]}
             showsVerticalScrollIndicator={false}>
             <Animated.View style={[styles.supportBlock, { opacity: supportOpacity, transform: [{ translateY: supportTranslateY }] }]}>
               <Text style={[styles.screenTitle, { color: palette.text }]}>Pomodill</Text>
@@ -235,9 +215,7 @@ export default function TimerScreen() {
                   styles.jarStage,
                   isWide && styles.jarStageWide,
                   isCompact && styles.jarStageCompact,
-                  {
-                    transform: [{ translateY: jarTranslateY }, { scale: jarScale }],
-                  },
+                  { transform: [{ translateY: jarTranslateY }, { scale: jarScale }] },
                 ]}>
                 <TimerDisplay
                   modeLabel={modeLabel}
@@ -251,21 +229,7 @@ export default function TimerScreen() {
                   isCompleted={sessionProgress >= 1 && !isRunning}
                   compact={isCompact}
                 />
-                <Animated.View
-                  style={[
-                    styles.controlsWrap,
-                    {
-                      opacity: controlsOpacity,
-                      transform: [
-                        {
-                          translateY: controlsOpacity.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [10, 0],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}>
+                <Animated.View style={[styles.controlsWrap, controlsAnimatedStyle]}>
                   <TimerControls
                     isRunning={isRunning}
                     isSessionActive={isSessionActive}
@@ -345,12 +309,12 @@ const styles = StyleSheet.create({
     right: -100,
     bottom: 140,
   },
+  touchLayer: {
+    flex: 1,
+  },
   screen: {
     flex: 1,
     paddingHorizontal: AppTheme.spacing.md,
-  },
-  touchLayer: {
-    flex: 1,
   },
   focusScreen: {
     flex: 1,
@@ -363,10 +327,6 @@ const styles = StyleSheet.create({
     paddingTop: AppTheme.spacing.sm,
     paddingBottom: Platform.select({ ios: 26, default: 18 }),
     gap: AppTheme.spacing.md,
-  },
-  screenContentFocus: {
-    justifyContent: 'center',
-    minHeight: '100%',
   },
   supportBlock: {
     gap: 6,
@@ -405,23 +365,15 @@ const styles = StyleSheet.create({
   focusJarStage: {
     justifyContent: 'center',
   },
-  focusJarArea: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 104,
+  controlsWrap: {
+    zIndex: 2,
+  },
+  focusControlsWrap: {
+    minHeight: 78,
   },
   taskWrap: {
     width: '100%',
     maxWidth: 420,
-  },
-  controlsWrap: {
-    zIndex: 2,
-  },
-  controlsWrapFloating: {
-    position: 'absolute',
-    bottom: 0,
-    alignSelf: 'center',
   },
   footerBlock: {
     width: '100%',
