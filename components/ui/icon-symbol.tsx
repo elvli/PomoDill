@@ -20,6 +20,8 @@ const MAPPING = {
   'gearshape.fill': 'settings',
   'play.fill': 'play-arrow',
   'pause.fill': 'pause',
+  'forward.end.fill': 'skip-next',
+  'stop.fill': 'stop',
   'arrow.counterclockwise': 'restart-alt',
 } as IconMapping;
 

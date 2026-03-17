@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AppTheme, Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -20,19 +21,33 @@ export function TimerControls({
 }: TimerControlsProps) {
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? 'light'];
-  const primaryLabel = isRunning ? 'Pause' : isSessionActive ? 'Resume' : 'Start';
-  const resetLabel = isSessionActive ? 'Stop' : 'Reset';
+  const primaryIcon = isRunning ? 'pause.fill' : 'play.fill';
+  const resetIcon = isSessionActive ? 'stop.fill' : 'arrow.counterclockwise';
 
   return (
     <View style={styles.row}>
-      <Pressable style={[styles.primaryButton, { backgroundColor: palette.tintStrong }]} onPress={onPrimaryPress}>
-        <Text style={[styles.primaryLabel, { color: palette.background }]}>{primaryLabel}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Skip timer"
+        style={[styles.secondaryButton, { borderColor: palette.border, backgroundColor: palette.card }]}
+        onPress={onSkipPress}>
+        <IconSymbol name="forward.end.fill" size={22} color={palette.text} />
       </Pressable>
-      <Pressable style={[styles.secondaryButton, { borderColor: palette.border }]} onPress={onSkipPress}>
-        <Text style={[styles.secondaryLabel, { color: palette.text }]}>Skip</Text>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isRunning ? 'Pause timer' : isSessionActive ? 'Resume timer' : 'Start timer'}
+        style={[styles.primaryButton, { backgroundColor: palette.tintStrong }]}
+        onPress={onPrimaryPress}>
+        <IconSymbol name={primaryIcon} size={28} color={palette.background} />
       </Pressable>
-      <Pressable style={[styles.secondaryButton, { borderColor: palette.border }]} onPress={onResetPress}>
-        <Text style={[styles.secondaryLabel, { color: palette.text }]}>{resetLabel}</Text>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isSessionActive ? 'Stop timer' : 'Reset timer'}
+        style={[styles.secondaryButton, { borderColor: palette.border, backgroundColor: palette.card }]}
+        onPress={onResetPress}>
+        <IconSymbol name={resetIcon} size={22} color={palette.text} />
       </Pressable>
     </View>
   );
@@ -41,32 +56,23 @@ export function TimerControls({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: AppTheme.spacing.sm,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   primaryButton: {
-    minWidth: 128,
+    width: 78,
+    height: 78,
     borderRadius: AppTheme.radius.pill,
-    paddingVertical: 15,
-    paddingHorizontal: 24,
     alignItems: 'center',
-  },
-  primaryLabel: {
-    fontSize: 16,
-    fontWeight: '700',
+    justifyContent: 'center',
   },
   secondaryButton: {
-    minWidth: 96,
+    width: 56,
+    height: 56,
     borderWidth: 1,
     borderRadius: AppTheme.radius.pill,
-    paddingVertical: 15,
-    paddingHorizontal: 18,
     alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  secondaryLabel: {
-    fontSize: 15,
-    fontWeight: '600',
+    justifyContent: 'center',
   },
 });

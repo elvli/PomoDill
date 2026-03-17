@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -47,8 +47,51 @@ export default function TimerScreen() {
     skipTimer,
   } = usePomodoroTimer();
   const focusValue = useRef(new Animated.Value(0)).current;
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
+  const hideControlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [areFocusControlsVisible, setAreFocusControlsVisible] = useState(true);
   const showFocusMode = isSessionActive || isRunning;
+  const shouldAutoHideControls = currentMode === 'focus' && isRunning;
   const recentSession = sessions[0];
+
+  function clearHideControlsTimeout() {
+    if (!hideControlsTimeoutRef.current) {
+      return;
+    }
+
+    clearTimeout(hideControlsTimeoutRef.current);
+    hideControlsTimeoutRef.current = null;
+  }
+
+  function animateControlsVisibility(visible: boolean) {
+    Animated.timing(controlsOpacity, {
+      toValue: visible ? 1 : 0,
+      duration: visible ? 180 : 260,
+      easing: visible ? Easing.out(Easing.cubic) : Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function scheduleControlsFadeOut() {
+    clearHideControlsTimeout();
+    hideControlsTimeoutRef.current = setTimeout(() => {
+      setAreFocusControlsVisible(false);
+      animateControlsVisibility(false);
+    }, 5000);
+  }
+
+  function handleScreenInteraction() {
+    if (!shouldAutoHideControls) {
+      return;
+    }
+
+    if (!areFocusControlsVisible) {
+      setAreFocusControlsVisible(true);
+      animateControlsVisibility(true);
+    }
+
+    scheduleControlsFadeOut();
+  }
 
   useEffect(() => {
     Animated.timing(focusValue, {
@@ -58,6 +101,21 @@ export default function TimerScreen() {
       useNativeDriver: true,
     }).start();
   }, [focusValue, showFocusMode]);
+
+  useEffect(() => {
+    if (shouldAutoHideControls) {
+      clearHideControlsTimeout();
+      setAreFocusControlsVisible(false);
+      controlsOpacity.setValue(0);
+      return;
+    }
+
+    clearHideControlsTimeout();
+    setAreFocusControlsVisible(true);
+    controlsOpacity.setValue(1);
+  }, [controlsOpacity, shouldAutoHideControls]);
+
+  useEffect(() => () => clearHideControlsTimeout(), []);
 
   useEffect(() => {
     navigation.setOptions({
@@ -103,87 +161,161 @@ export default function TimerScreen() {
         <View style={[styles.bgOrb, styles.bgOrbRight, { backgroundColor: palette.surfaceMuted }]} />
       </View>
 
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={[styles.screenContent, showFocusMode && styles.screenContentFocus]}
-        scrollEnabled={!showFocusMode}
-        showsVerticalScrollIndicator={false}>
-        <Animated.View style={[styles.supportBlock, { opacity: supportOpacity, transform: [{ translateY: supportTranslateY }] }]}>
-          <Text style={[styles.screenTitle, { color: palette.text }]}>Pomodill</Text>
-          <Text style={[styles.screenSubtitle, { color: palette.textMuted }]}>
-            A clean countdown with a jar that pickles as the session progresses.
-          </Text>
-        </Animated.View>
-
-        <View style={[styles.mainColumn, isWide && styles.mainColumnWide]}>
-          <Animated.View
-            style={[
-              styles.jarStage,
-              isWide && styles.jarStageWide,
-              isCompact && styles.jarStageCompact,
-              {
-                transform: [{ translateY: jarTranslateY }, { scale: jarScale }],
-              },
-            ]}>
-            <TimerDisplay
-              modeLabel={modeLabel}
-              timeLabel={formatClock(secondsRemaining)}
-              isSessionActive={showFocusMode}
-              compact={isCompact}
-            />
-            <PickleJarProgress
-              progress={sessionProgress}
-              isSessionActive={showFocusMode}
-              isCompleted={sessionProgress >= 1 && !isRunning}
-              compact={isCompact}
-            />
-            <TimerControls
-              isRunning={isRunning}
-              isSessionActive={isSessionActive}
-              onPrimaryPress={isRunning ? pauseTimer : startTimer}
-              onSkipPress={skipTimer}
-              onResetPress={resetTimer}
-            />
-            <Animated.View style={[styles.taskWrap, { opacity: supportOpacity, transform: [{ translateY: supportTranslateY }] }]}>
-              <TaskSummary title={selectedTaskLabel} isSessionActive={showFocusMode} />
+      {showFocusMode ? (
+        <View style={styles.touchLayer} onTouchStart={handleScreenInteraction}>
+          <View style={[styles.focusScreen, isWide && styles.mainColumnWide]}>
+            <Animated.View
+              style={[
+                styles.jarStage,
+                styles.focusJarStage,
+                isWide && styles.jarStageWide,
+                isCompact && styles.jarStageCompact,
+                {
+                  transform: [{ translateY: jarTranslateY }, { scale: jarScale }],
+                },
+              ]}>
+              <TimerDisplay
+                modeLabel={modeLabel}
+                timeLabel={formatClock(secondsRemaining)}
+                isSessionActive={showFocusMode}
+                compact={isCompact}
+              />
+              <View style={styles.focusJarArea}>
+                <PickleJarProgress
+                  progress={sessionProgress}
+                  isSessionActive={showFocusMode}
+                  isCompleted={sessionProgress >= 1 && !isRunning}
+                  compact={isCompact}
+                />
+                <Animated.View
+                  pointerEvents={shouldAutoHideControls && !areFocusControlsVisible ? 'none' : 'auto'}
+                  style={[
+                    styles.controlsWrap,
+                    shouldAutoHideControls && styles.controlsWrapFloating,
+                    {
+                      opacity: controlsOpacity,
+                      transform: [
+                        {
+                          translateY: controlsOpacity.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [10, 0],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}>
+                  <TimerControls
+                    isRunning={isRunning}
+                    isSessionActive={isSessionActive}
+                    onPrimaryPress={isRunning ? pauseTimer : startTimer}
+                    onSkipPress={skipTimer}
+                    onResetPress={resetTimer}
+                  />
+                </Animated.View>
+              </View>
             </Animated.View>
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.footerBlock,
-              isWide && styles.footerBlockWide,
-              { opacity: supportOpacity, transform: [{ translateY: supportTranslateY }] },
-            ]}>
-            <ProgressSummary
-              todayFocusLabel={todayFocusLabel}
-              sessionsCompletedToday={sessionsCompletedToday}
-              recentSessionLabel={recentSessionLabel}
-            />
-            <View style={[styles.modeStrip, { backgroundColor: palette.card, borderColor: palette.border }]}>
-              {Object.entries(SESSION_LABELS).map(([modeKey, label]) => {
-                const isActive = modeKey === currentMode;
-
-                return (
-                  <View
-                    key={modeKey}
-                    style={[
-                      styles.modeChip,
-                      {
-                        backgroundColor: isActive ? palette.tintStrong : 'transparent',
-                        borderColor: isActive ? palette.tintStrong : palette.border,
-                      },
-                    ]}>
-                    <Text style={[styles.modeChipLabel, { color: isActive ? palette.background : palette.textMuted }]}>
-                      {label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </Animated.View>
+          </View>
         </View>
-      </ScrollView>
+      ) : (
+        <View style={styles.touchLayer} onTouchStart={handleScreenInteraction}>
+          <ScrollView
+            style={styles.screen}
+            contentContainerStyle={styles.screenContent}
+            showsVerticalScrollIndicator={false}>
+            <Animated.View style={[styles.supportBlock, { opacity: supportOpacity, transform: [{ translateY: supportTranslateY }] }]}>
+              <Text style={[styles.screenTitle, { color: palette.text }]}>Pomodill</Text>
+              <Text style={[styles.screenSubtitle, { color: palette.textMuted }]}>
+                A clean countdown with a jar that pickles as the session progresses.
+              </Text>
+            </Animated.View>
+
+            <View style={[styles.mainColumn, isWide && styles.mainColumnWide]}>
+              <Animated.View
+                style={[
+                  styles.jarStage,
+                  isWide && styles.jarStageWide,
+                  isCompact && styles.jarStageCompact,
+                  {
+                    transform: [{ translateY: jarTranslateY }, { scale: jarScale }],
+                  },
+                ]}>
+                <TimerDisplay
+                  modeLabel={modeLabel}
+                  timeLabel={formatClock(secondsRemaining)}
+                  isSessionActive={showFocusMode}
+                  compact={isCompact}
+                />
+                <PickleJarProgress
+                  progress={sessionProgress}
+                  isSessionActive={showFocusMode}
+                  isCompleted={sessionProgress >= 1 && !isRunning}
+                  compact={isCompact}
+                />
+                <Animated.View
+                  style={[
+                    styles.controlsWrap,
+                    {
+                      opacity: controlsOpacity,
+                      transform: [
+                        {
+                          translateY: controlsOpacity.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [10, 0],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}>
+                  <TimerControls
+                    isRunning={isRunning}
+                    isSessionActive={isSessionActive}
+                    onPrimaryPress={isRunning ? pauseTimer : startTimer}
+                    onSkipPress={skipTimer}
+                    onResetPress={resetTimer}
+                  />
+                </Animated.View>
+                <Animated.View style={[styles.taskWrap, { opacity: supportOpacity, transform: [{ translateY: supportTranslateY }] }]}>
+                  <TaskSummary title={selectedTaskLabel} isSessionActive={showFocusMode} />
+                </Animated.View>
+              </Animated.View>
+
+              <Animated.View
+                style={[
+                  styles.footerBlock,
+                  isWide && styles.footerBlockWide,
+                  { opacity: supportOpacity, transform: [{ translateY: supportTranslateY }] },
+                ]}>
+                <ProgressSummary
+                  todayFocusLabel={todayFocusLabel}
+                  sessionsCompletedToday={sessionsCompletedToday}
+                  recentSessionLabel={recentSessionLabel}
+                />
+                <View style={[styles.modeStrip, { backgroundColor: palette.card, borderColor: palette.border }]}>
+                  {Object.entries(SESSION_LABELS).map(([modeKey, label]) => {
+                    const isActive = modeKey === currentMode;
+
+                    return (
+                      <View
+                        key={modeKey}
+                        style={[
+                          styles.modeChip,
+                          {
+                            backgroundColor: isActive ? palette.tintStrong : 'transparent',
+                            borderColor: isActive ? palette.tintStrong : palette.border,
+                          },
+                        ]}>
+                        <Text style={[styles.modeChipLabel, { color: isActive ? palette.background : palette.textMuted }]}>
+                          {label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+            </View>
+          </ScrollView>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -215,6 +347,16 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
+    paddingHorizontal: AppTheme.spacing.md,
+  },
+  touchLayer: {
+    flex: 1,
+  },
+  focusScreen: {
+    flex: 1,
+    justifyContent: 'center',
+    alignSelf: 'center',
+    width: '100%',
     paddingHorizontal: AppTheme.spacing.md,
   },
   screenContent: {
@@ -260,9 +402,26 @@ const styles = StyleSheet.create({
   jarStageCompact: {
     gap: AppTheme.spacing.sm,
   },
+  focusJarStage: {
+    justifyContent: 'center',
+  },
+  focusJarArea: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 104,
+  },
   taskWrap: {
     width: '100%',
     maxWidth: 420,
+  },
+  controlsWrap: {
+    zIndex: 2,
+  },
+  controlsWrapFloating: {
+    position: 'absolute',
+    bottom: 0,
+    alignSelf: 'center',
   },
   footerBlock: {
     width: '100%',
