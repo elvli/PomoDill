@@ -157,6 +157,8 @@ export function TimerHomeScreen({ timer }: TimerHomeScreenProps) {
     inputRange: [0, 1],
     outputRange: [0, 18],
   });
+  const focusScreenPaddingTop = insets.top + AppTheme.spacing.xs;
+  const focusScreenPaddingBottom = Math.max(insets.bottom + AppTheme.spacing.sm, AppTheme.spacing.lg);
   const recentSessionLabel = useMemo(() => {
     if (!recentSession) {
       return undefined;
@@ -186,7 +188,15 @@ export function TimerHomeScreen({ timer }: TimerHomeScreenProps) {
 
       {showFocusMode ? (
         <View style={styles.touchLayer} onTouchStart={handleScreenInteraction}>
-          <View style={[styles.focusScreen, isWide && styles.mainColumnWide]}>
+          <View
+            style={[
+              styles.focusScreen,
+              isWide && styles.mainColumnWide,
+              {
+                paddingTop: focusScreenPaddingTop,
+                paddingBottom: focusScreenPaddingBottom,
+              },
+            ]}>
             <Animated.View
               style={[
                 styles.jarStage,
