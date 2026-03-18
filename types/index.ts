@@ -19,9 +19,11 @@ export interface TimerSettings {
 export interface Task {
   id: string;
   title: string;
-  notes?: string;
-  completed: boolean;
-  estimatedPomodoros?: number;
+  notes: string;
+  estimatedPomodoros: number;
+  completedPomodoros: number;
+  isCurrent: boolean;
+  isCompleted: boolean;
   createdAt: string;
   updatedAt: string;
 }

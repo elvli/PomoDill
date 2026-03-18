@@ -23,6 +23,7 @@ const MAPPING = {
   'forward.end.fill': 'skip-next',
   'stop.fill': 'stop',
   'arrow.counterclockwise': 'restart-alt',
+  'trash.fill': 'delete',
 } as IconMapping;
 
 export function IconSymbol({

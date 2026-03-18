@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Animated, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { MainAppMenu } from '@/components/main-app-menu';
@@ -19,8 +19,10 @@ export function MainSwipeShell() {
   const router = useRouter();
   const timer = usePomodoroTimer();
   const scrollRef = useRef<ScrollView | null>(null);
+  const editorOverlayOpacity = useRef(new Animated.Value(0)).current;
   const [currentPage, setCurrentPage] = useState<number>(PAGE_INDEX.timer);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isTimerEditorOpen, setIsTimerEditorOpen] = useState(false);
   const isNavigationLocked = timer.currentMode === 'focus' && timer.isRunning;
 
   useEffect(() => {
@@ -29,6 +31,14 @@ export function MainSwipeShell() {
       animated: false,
     });
   }, [currentPage, width]);
+
+  useEffect(() => {
+    Animated.timing(editorOverlayOpacity, {
+      toValue: isTimerEditorOpen ? 1 : 0,
+      duration: isTimerEditorOpen ? 180 : 140,
+      useNativeDriver: true,
+    }).start();
+  }, [editorOverlayOpacity, isTimerEditorOpen]);
 
   function jumpToPage(page: number) {
     setMenuOpen(false);
@@ -58,12 +68,23 @@ export function MainSwipeShell() {
           <StatsDashboardScreen />
         </View>
         <View style={[styles.page, { width }]}>
-          <TimerHomeScreen timer={timer} />
+          <TimerHomeScreen timer={timer} onEditorVisibilityChange={setIsTimerEditorOpen} />
         </View>
         <View style={[styles.page, { width }]}>
           <MarketplaceScreen />
         </View>
       </ScrollView>
+
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.editorOverlay,
+          {
+            opacity: editorOverlayOpacity,
+            backgroundColor: 'rgba(24, 32, 20, 0.34)',
+          },
+        ]}
+      />
 
       <MainAppMenu
         hidden={isNavigationLocked}
@@ -90,5 +111,9 @@ const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
+  },
+  editorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
   },
 });
