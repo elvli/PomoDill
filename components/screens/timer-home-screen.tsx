@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -18,11 +18,15 @@ import { TimerControls } from '@/components/timer-controls';
 import { TimerDisplay } from '@/components/timer-display';
 import { AppTheme, Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { usePomodoroTimer } from '@/hooks/use-pomodoro-timer';
+import { UsePomodoroTimerResult } from '@/hooks/use-pomodoro-timer';
 import { formatClock } from '@/lib/session';
 import { SESSION_LABELS } from '@/lib/timer';
 
-export function TimerHomeScreen() {
+type TimerHomeScreenProps = {
+  timer: UsePomodoroTimerResult;
+};
+
+export function TimerHomeScreen({ timer }: TimerHomeScreenProps) {
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -44,42 +48,44 @@ export function TimerHomeScreen() {
     pauseTimer,
     resetTimer,
     skipTimer,
-  } = usePomodoroTimer();
+  } = timer;
   const focusValue = useRef(new Animated.Value(0)).current;
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   const hideControlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousIsRunningRef = useRef(isRunning);
+  const previousIsSessionActiveRef = useRef(isSessionActive);
   const [areFocusControlsVisible, setAreFocusControlsVisible] = useState(true);
   const showFocusMode = isSessionActive || isRunning;
   const shouldAutoHideControls = currentMode === 'focus' && isRunning;
   const recentSession = sessions[0];
 
-  function clearHideControlsTimeout() {
+  const clearHideControlsTimeout = useCallback(() => {
     if (!hideControlsTimeoutRef.current) {
       return;
     }
 
     clearTimeout(hideControlsTimeoutRef.current);
     hideControlsTimeoutRef.current = null;
-  }
+  }, []);
 
-  function animateControlsVisibility(visible: boolean) {
+  const animateControlsVisibility = useCallback((visible: boolean) => {
     Animated.timing(controlsOpacity, {
       toValue: visible ? 1 : 0,
       duration: visible ? 180 : 260,
       easing: visible ? Easing.out(Easing.cubic) : Easing.inOut(Easing.quad),
       useNativeDriver: true,
     }).start();
-  }
+  }, [controlsOpacity]);
 
-  function scheduleControlsFadeOut() {
+  const scheduleControlsFadeOut = useCallback(() => {
     clearHideControlsTimeout();
     hideControlsTimeoutRef.current = setTimeout(() => {
       setAreFocusControlsVisible(false);
       animateControlsVisibility(false);
     }, 5000);
-  }
+  }, [animateControlsVisibility, clearHideControlsTimeout]);
 
-  function handleScreenInteraction() {
+  const handleScreenInteraction = useCallback(() => {
     if (!shouldAutoHideControls) {
       return;
     }
@@ -90,7 +96,7 @@ export function TimerHomeScreen() {
     }
 
     scheduleControlsFadeOut();
-  }
+  }, [animateControlsVisibility, areFocusControlsVisible, scheduleControlsFadeOut, shouldAutoHideControls]);
 
   useEffect(() => {
     Animated.timing(focusValue, {
@@ -102,19 +108,38 @@ export function TimerHomeScreen() {
   }, [focusValue, showFocusMode]);
 
   useEffect(() => {
+    const wasRunning = previousIsRunningRef.current;
+    const wasSessionActive = previousIsSessionActiveRef.current;
+    const isResumingFocusSession = shouldAutoHideControls && !wasRunning && wasSessionActive;
+
     if (shouldAutoHideControls) {
       clearHideControlsTimeout();
-      setAreFocusControlsVisible(false);
-      controlsOpacity.setValue(0);
-      return;
+      if (isResumingFocusSession) {
+        setAreFocusControlsVisible(true);
+        controlsOpacity.setValue(1);
+        scheduleControlsFadeOut();
+      } else {
+        setAreFocusControlsVisible(false);
+        controlsOpacity.setValue(0);
+      }
+    } else {
+      clearHideControlsTimeout();
+      setAreFocusControlsVisible(true);
+      controlsOpacity.setValue(1);
     }
 
-    clearHideControlsTimeout();
-    setAreFocusControlsVisible(true);
-    controlsOpacity.setValue(1);
-  }, [controlsOpacity, shouldAutoHideControls]);
+    previousIsRunningRef.current = isRunning;
+    previousIsSessionActiveRef.current = isSessionActive;
+  }, [
+    clearHideControlsTimeout,
+    controlsOpacity,
+    isRunning,
+    isSessionActive,
+    scheduleControlsFadeOut,
+    shouldAutoHideControls,
+  ]);
 
-  useEffect(() => () => clearHideControlsTimeout(), []);
+  useEffect(() => () => clearHideControlsTimeout(), [clearHideControlsTimeout]);
 
   const jarTranslateY = focusValue.interpolate({
     inputRange: [0, 1],

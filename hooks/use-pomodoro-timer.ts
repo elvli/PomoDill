@@ -13,7 +13,7 @@ import {
 import { getStoredItem, setStoredItem } from '@/lib/storage';
 import { Session, SessionType, TimerSettings } from '@/types';
 
-type UsePomodoroTimerResult = {
+export type UsePomodoroTimerResult = {
   settings: TimerSettings;
   sessions: Session[];
   currentMode: SessionType;

@@ -1,11 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppTheme, Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 type MainAppMenuProps = {
+  hidden?: boolean;
   isOpen: boolean;
   onToggle: () => void;
   onSignIn: () => void;
@@ -35,6 +37,7 @@ function MenuRow({
 }
 
 export function MainAppMenu({
+  hidden = false,
   isOpen,
   onToggle,
   onSignIn,
@@ -45,9 +48,20 @@ export function MainAppMenu({
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: hidden ? 0 : 1,
+      duration: hidden ? 220 : 180,
+      useNativeDriver: true,
+    }).start();
+  }, [hidden, opacity]);
 
   return (
-    <View style={[styles.wrapper, { top: insets.top + 8 }]} pointerEvents="box-none">
+    <Animated.View
+      style={[styles.wrapper, { opacity, top: insets.top + 8 }]}
+      pointerEvents={hidden ? 'none' : 'box-none'}>
       <Pressable
         onPress={onToggle}
         style={[
@@ -68,7 +82,7 @@ export function MainAppMenu({
           <MenuRow label="Stats" icon="bar-chart" onPress={onStats} />
         </View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 

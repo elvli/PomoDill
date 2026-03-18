@@ -6,6 +6,7 @@ import { MainAppMenu } from '@/components/main-app-menu';
 import { MarketplaceScreen } from '@/components/screens/marketplace-screen';
 import { StatsDashboardScreen } from '@/components/screens/stats-dashboard-screen';
 import { TimerHomeScreen } from '@/components/screens/timer-home-screen';
+import { usePomodoroTimer } from '@/hooks/use-pomodoro-timer';
 
 const PAGE_INDEX = {
   stats: 0,
@@ -16,9 +17,11 @@ const PAGE_INDEX = {
 export function MainSwipeShell() {
   const { width } = useWindowDimensions();
   const router = useRouter();
+  const timer = usePomodoroTimer();
   const scrollRef = useRef<ScrollView | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(PAGE_INDEX.timer);
   const [menuOpen, setMenuOpen] = useState(false);
+  const isNavigationLocked = timer.currentMode === 'focus' && timer.isRunning;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -44,6 +47,7 @@ export function MainSwipeShell() {
         ref={scrollRef}
         horizontal
         pagingEnabled
+        scrollEnabled={!isNavigationLocked}
         bounces={false}
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
@@ -54,7 +58,7 @@ export function MainSwipeShell() {
           <StatsDashboardScreen />
         </View>
         <View style={[styles.page, { width }]}>
-          <TimerHomeScreen />
+          <TimerHomeScreen timer={timer} />
         </View>
         <View style={[styles.page, { width }]}>
           <MarketplaceScreen />
@@ -62,6 +66,7 @@ export function MainSwipeShell() {
       </ScrollView>
 
       <MainAppMenu
+        hidden={isNavigationLocked}
         isOpen={menuOpen}
         onToggle={() => setMenuOpen((open) => !open)}
         onSignIn={() => {
